@@ -72,7 +72,7 @@ namespace ns3 {
         std::cout << "  > Installed Internet stacks" << std::endl;
 
         // IP helper
-        m_ipv4_helper.SetBase ("10.0.0.0", "255.255.255.0");
+        m_ipv4_helper.SetBase ("10.0.0.0", "255.255.0.0");
 
         // Link settings
         m_isl_data_rate_megabit_per_s = parse_positive_double(m_basicSimulation->GetConfigParamOrFail("isl_data_rate_megabit_per_s"));
