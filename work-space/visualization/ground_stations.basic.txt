@@ -1,0 +1,189 @@
+0,Accra; Ghana,5.803990,-0.090984,0.0
+1,Adelanto; California,34.602400,-117.455000,0.0
+2,Aerzen; Delaware,52.061000,9.328230,0.0
+3,Aflenz; OS,47.553200,15.292200,0.0
+4,Akita; Japan,39.638300,140.065000,0.0
+5,Anakie; Victoria; Australia,-37.953200,144.328000,0.0
+6,Anchorage; Alaska,61.185900,-149.877000,0.0
+7,Anchorage; Alaska,61.185700,-149.876000,0.0
+8,Angeles; Pampanga; Philippines,15.170900,120.506000,0.0
+9,Aquierpa; Peru,-16.470200,-71.513400,0.0
+10,Aracaju; Brazil,-11.081200,-37.146700,0.0
+11,Arlington; Oregon,45.625500,-120.175000,0.0
+12,Ashburn; Virginia,39.015700,-77.464900,0.0
+13,Atlanta; Georgia,33.733500,-84.424600,0.0
+14,Awarua; New Zealand,-46.530500,168.383000,0.0
+15,Bathurst; New South Wales; Australia,-33.436700,149.522000,0.0
+16,Baxley; Georgia,31.682200,-82.269000,0.0
+17,Bellingham; Washington,48.774000,-122.449000,0.0
+18,Benevides; Brazil,-1.359330,-48.258300,0.0
+19,Benkelman; Nebraska,40.104900,-101.510000,0.0
+20,Blountsville; Alabama,34.098400,-86.578500,0.0
+21,Boca Chica; Texas,25.983700,-97.190700,0.0
+22,Cundinamarca (Bogota); Colorado,4.742490,-74.144800,0.0
+23,Boorowa; New South Wales; Australia,-34.462100,148.706000,0.0
+24,Brewster; Washington,48.148600,-119.701000,0.0
+25,Broadview; Illinois,41.855000,-87.858900,0.0
+26,Broken Hill; New South Wales; Australia,-31.998300,141.441000,0.0
+27,Brunswick; Maine,43.896100,-69.923400,0.0
+28,Buenos Aires; Arkansas,-34.563600,-58.509600,0.0
+29,Bulla Bulling; Western Australia; Australia,-31.029900,120.820000,0.0
+30,Caldera; Chile,-27.020000,-70.788000,0.0
+31,La Caleta; Dominican Republic,18.454000,-69.661700,0.0
+32,Calgary; AB; California,50.998800,-113.907000,0.0
+33,Calverton; New York,40.908900,-72.797600,0.0
+34,Cataby; Western Australia; Australia,-30.848300,115.619000,0.0
+35,Caucaia; Brazil,-3.756340,-38.937900,0.0
+36,Centennial; Colorado,39.591900,-104.847000,0.0
+37,Chalfont Grove; United Kingdom,51.615500,-0.575770,0.0
+38,Charcas; Mexico,23.226100,-100.979000,0.0
+39,Cikarang Barat; Java; Idaho,-6.306290,107.097000,0.0
+40,Cleavdon; New Zealand,-36.989700,175.055000,0.0
+41,Cleavedon; New Zealand,-36.989900,175.056000,0.0
+42,Clinton; Illinois,40.176500,-88.873700,0.0
+43,Colburn; Idaho,48.345200,-116.439000,0.0
+44,Columbus; Ohio,40.062600,-82.771000,0.0
+45,Corpus Christi; Texas,27.793100,-97.451900,0.0
+46,Covilha; Portugal,40.265300,-7.478250,0.0
+47,Cromwell; New Zealand,-45.061100,169.193000,0.0
+48,Dallas; Texas,32.719500,-96.761900,0.0
+49,Des Moines; New Mexico,36.697500,-103.792000,0.0
+50,Douglas; Wyoming,42.740100,-105.350000,0.0
+51,Dubuque; Iowa,42.444600,-90.678500,0.0
+52,Elkton; Maryland,39.630900,-75.909700,0.0
+53,Evanston; Wyoming,41.092500,-110.843000,0.0
+54,Falda del Carmen; Arkansas,-31.522500,-64.461000,0.0
+55,Fawley; United Kingdom,50.823300,-1.337710,0.0
+56,Foggia; Italy,41.432800,15.658600,0.0
+57,Foggia; Italy,41.433400,15.657100,0.0
+58,Fortaleza; Brazil,-3.735320,-38.461700,0.0
+59,Frankfurt; Delaware,50.329800,8.470820,0.0
+60,Fremont; California,37.492100,-121.937000,0.0
+61,Garrettstown (Ballinspittle); Ireland,51.645000,-8.588050,0.0
+62,Kaliakair; Gazipur; Bangladesh,24.066200,90.233400,0.0
+63,Goodyear; Arizona,33.412100,-112.413000,0.0
+64,Goonhilly; United Kingdom,50.049600,-5.181430,0.0
+65,Hillsboro; Texas,32.004500,-97.063200,0.0
+66,Hinds; New Zealand,-44.007400,171.572000,0.0
+67,Hitachinaka; Ibaraki; Japan,36.386700,140.614000,0.0
+68,Hoofddorp; Netherlands,52.290800,4.686590,0.0
+69,Ibi; Spain,38.608400,-0.600700,0.0
+70,Ikire; Nigeria,7.387500,4.212400,0.0
+71,Isle of Man; United Kingdom,54.139100,-4.497280,0.0
+72,Itaboraí; Brazil,-22.696700,-42.872800,0.0
+73,João Câmara; Brazil,-5.546120,-35.817000,0.0
+74,Juazeiro do Norte; Brazil,-7.215120,-39.336700,0.0
+75,Kaunas; Lithuania,54.870000,24.010000,0.0
+76,Grant of Authority; 9+5 of 40 Dec 2023,27.876000,-81.030500,0.0
+77,Kendari; Sulawesi; Idaho,-3.977440,122.511000,0.0
+78,Ki Ki; South Australia; Australia,-35.571700,139.817000,0.0
+79,Koonwarra; Victoria; Australia,-38.518100,145.951000,0.0
+80,Lekki; Nigeria,6.449530,3.587730,0.0
+81,Lepe; Spain,37.255600,-7.236140,0.0
+82,Santiago de Surco; Lima; Peru,-12.086900,-76.975200,0.0
+83,Lindon; Utah,40.332700,-111.731000,0.0
+84,Lisle; Illinois,41.800600,-88.096100,0.0
+85,Litchfield; Connecticut,41.545000,-73.354000,0.0
+86,Llano Grande; Mexico,19.258900,-99.581100,0.0
+87,Lobatse; Botswana,-25.259500,25.705700,0.0
+88,Loeches; Spain,40.401000,-3.405880,0.0
+89,Los Angeles; California,33.924300,-118.318000,0.0
+90,Luz; Brazil,-19.803300,-45.681100,0.0
+91,Macquarie Park; New South Wales; Australia,-33.785400,151.132000,0.0
+92,Makassar; Idaho,-5.173030,119.433000,0.0
+93,Malaga; Western Australia; Australia,-31.864100,115.896000,0.0
+94,Manaus; Brazil,-2.926740,-59.997800,0.0
+95,Mandale; North Carolina,35.895800,-79.226700,0.0
+96,Marathon; ON; California,48.725400,-86.374500,0.0
+97,Marsala; Italy,37.794300,12.493100,0.0
+98,Marshall; Texas,32.532200,-94.430300,0.0
+99,Matola; Mozambique,-25.920700,32.415000,0.0
+100,Mazahua; Mexico,16.609600,-94.964200,0.0
+101,Mendoza; Arkansas,-32.931500,-68.810500,0.0
+102,Merida; Mexico,21.007400,-89.643900,0.0
+103,Merredin; Western Australia; Australia,-31.494900,118.278000,0.0
+104,Mesa; Arizona,33.421200,-111.859000,0.0
+105,Molokai; Hawaii,21.112700,-157.063000,0.0
+106,Montes Carlos; Brazil,-16.683700,-43.833300,0.0
+107,Morn Hill; United Kingdom,51.060200,-1.263880,0.0
+108,Mossoró; Brazil,-5.156950,-37.353700,0.0
+109,Mt Ayr; Indiana,40.926400,-87.295400,0.0
+110,Muallim; Türkiye,40.788700,29.509400,0.0
+111,Nairobi; Kenya,-1.329120,36.886400,0.0
+112,Nairobi; Kenya - Karen,-1.350230,36.750300,0.0
+113,Niland; California,33.220500,-115.467000,0.0
+114,Ningi; Queensland; Australia,-27.068400,153.055000,0.0
+115,North Miami; Florida,25.949600,-80.191800,0.0
+116,Nova Santa Rita; Brazil,-29.842900,-51.284500,0.0
+117,Noviciado; Chile,-33.392700,-70.883200,0.0
+118,Oistins; Barbados,13.062800,-59.537600,0.0
+119,Okun Ajah; Nigeria,6.425760,3.645500,0.0
+120,Otaru; Hokkaido; Japan,43.173200,141.258000,0.0
+121,Palangka Raya; Kalimantan; Idaho,-2.218660,113.925000,0.0
+122,Passa Quatro; Brazil,-22.349300,-44.945400,0.0
+123,Peñuelas; Mexico,21.731400,-102.275000,0.0
+124,Petra Jaya; Malaysia,1.606500,110.340000,0.0
+125,Phoenix; Arizona,33.685100,-112.097000,0.0
+126,Pimba; South Australia; Australia,-31.250700,136.801000,0.0
+127,Piura; Peru,-5.159690,-80.687500,0.0
+128,Plana; Bulgaria,42.482900,23.444900,0.0
+129,Ponce; Puerto Rico,18.062000,-66.547800,0.0
+130,Port Matilda; Pennsylvania,40.806200,-77.995900,0.0
+131,Porto Alegre; Brazil,-29.984200,-51.120900,0.0
+132,Presidente Prudente; Brazil,-22.146100,-51.474100,0.0
+133,Prosser; Washington,46.126900,-119.684000,0.0
+134,Puerto Montt; Chile,-41.486600,-73.023400,0.0
+135,Puerto Saavedra; Chile,-38.814800,-73.397200,0.0
+136,Punta Arenas; Chile,-52.939700,-70.850400,0.0
+137,Punta Gorda; Florida,27.019700,-81.762000,0.0
+138,Puwera; New Zealand,-35.793500,174.301000,0.0
+139,--,20.573500,-100.274000,0.0
+140,Redmond; Washington,47.696300,-122.035000,0.0
+141,Richardson; Texas,32.965400,-96.712600,0.0
+142,Rio Negro; Brazil,-26.088600,-49.792900,0.0
+143,Roberts; Wisconsin,44.941000,-92.516000,0.0
+144,Roll; Arizona,32.815300,-113.797000,0.0
+145,Romulus; New York,42.788100,-76.863300,0.0
+146,Saguenay; QC; California,48.313700,-70.908900,0.0
+147,Sambro Creek; NS; California,44.464500,-63.613100,0.0
+148,San Clemente; Chile,-35.555900,-71.356900,0.0
+149,San Jose; California,37.370400,-121.969000,0.0
+150,Santa Elena; Chile,-29.999700,-71.258200,0.0
+151,Santana de Parnaíba; Brazil,-23.456400,-46.942300,0.0
+152,Santiago de los Caballeros; Dominican Republic,19.481000,-70.726600,0.0
+153,Savanna; Oklahoma,34.789300,-95.876500,0.0
+154,Savannah; Tennessee,35.159500,-88.061300,0.0
+155,Sellheim; Queensland; Australia,-19.999700,146.422000,0.0
+156,Sheffield; Illinois,41.361200,-89.743300,0.0
+157,Singapore; Singapore,1.397600,103.835000,0.0
+158,Springbrook Creek; New South Wales; Australia,-30.439800,149.684000,0.0
+159,St Johns; Netherlands; California,47.560900,-52.775500,0.0
+160,Sterling; Virginia,38.985000,-77.423900,0.0
+161,Surubim; Brazil,-7.853930,-35.780100,0.0
+162,Suva; Fiji,-18.129200,178.468000,0.0
+163,Tapachula; Mexico,14.786200,-92.367200,0.0
+164,Te Hana; New Zealand,-36.236700,174.512000,0.0
+165,Thika; Kenya,-1.041480,37.102600,0.0
+166,Thomaston; Georgia,32.947100,-84.261800,0.0
+167,Toa Baja; Puerto Rico,18.431100,-66.192100,0.0
+168,Torrumbarry; Victoria; Australia,-36.025300,144.500000,0.0
+169,Tukwila; Washington,47.508900,-122.299000,0.0
+170,Tumon; Guam,13.502800,144.805000,0.0
+171,Uruguaiana; Brazil,-29.765500,-56.527000,0.0
+172,Villamaggiore; Italy,45.318500,9.187330,0.0
+173,Villamaggiore; Italy,45.313700,9.184640,0.0
+174,Villenave d’Ornon; France,44.781000,-0.537380,0.0
+175,Virginia Beach; Virginia,36.783800,-76.009300,0.0
+176,Warra; Queensland; Australia,-26.908000,150.892000,0.0
+177,Watkins; Colorado,39.758300,-104.617000,0.0
+178,West Jordan; Utah,40.619700,-111.986000,0.0
+179,Westbury New York,40.755900,-73.557900,0.0
+180,Wherstead; United Kingdom,52.019200,1.143540,0.0
+181,Willemstad; Curaçao,12.097700,-68.908100,0.0
+182,Willemstad; Curaçao,12.097700,-68.908100,0.0
+183,Willows. Queensland; Australia,-23.666700,147.503000,0.0
+184,Wola Krobowska; Poland,51.864200,20.921000,0.0
+185,Woodville; New Zealand,-40.352100,175.867000,0.0
+186,Woodwalton; United Kingdom,52.405000,-0.219117,0.0
+187,Yamaguchi; Japan,34.217100,131.556000,0.0
+188,York; Pennsylvania,39.969100,-76.723000,0.0
