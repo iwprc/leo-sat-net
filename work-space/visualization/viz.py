@@ -10,6 +10,7 @@ import argparse
 import csv
 import json
 import math
+import re
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
@@ -93,24 +94,20 @@ HTML_TEMPLATE = """
     <div id="cesiumContainer"></div>
     <div id="infoPanel">
         <div>卫星数量：__SAT_COUNT__</div>
-        <div>壳层数量：__SHELL_COUNT__</div>
         <div>地面站数量：__GS_COUNT__</div>
         <div>用户数量：__USER_COUNT__</div>
         <div>POP数量：__POP_COUNT__</div>
         <div>轨迹时长：__DURATION_MINUTES__ 分钟</div>
         <div>采样步长：__TIME_STEP_SECONDS__ 秒</div>
         <div>TLE 起始时刻：<span id="tleEpochTime">__TLE_START_TIME_LABEL__</span></div>
-        <div>北上数量：<span id="northboundCount">0</span></div>
-        <div>南下数量：<span id="southboundCount">0</span></div>
-        <div>方向未知：<span id="unknownDirectionCount">0</span></div>
         <div style="margin-top: 6px;">
-            <label style="display: block;"><input type="checkbox" id="showNorthSatellites" checked> 显示北上卫星</label>
-            <label style="display: block;"><input type="checkbox" id="showSouthSatellites" checked> 显示南下卫星</label>
             <label style="display: block;"><input type="checkbox" id="showGroundStations" checked> 显示地面站</label>
             <label style="display: block;"><input type="checkbox" id="showUsers" checked> 显示用户分布</label>
             <label style="display: block;"><input type="checkbox" id="showPops" checked> 显示POP</label>
         </div>
         <div style="margin-top: 6px;">壳层统计：<span id="shellSummary">加载中...</span></div>
+        <div style="margin-top: 6px;">壳层显示（每层可选北上/南下）：</div>
+        <div id="shellControls" style="margin-top: 6px; max-height: 220px; overflow: auto; border: 1px solid rgba(255,255,255,0.15); padding: 6px; border-radius: 6px;"></div>
         <div>图例：不同轨道=不同颜色；北上=青色描边；南下=洋红虚线</div>
         <div>状态：<span id="status">初始化中...</span></div>
         <div>时间：<span id="currentTime"></span></div>
@@ -282,12 +279,26 @@ HTML_TEMPLATE = """
         const durationMinutes = __DURATION_MINUTES__;
         const timeStepInSeconds = __TIME_STEP_SECONDS__;
         const tleStartTime = Cesium.JulianDate.fromIso8601('__TLE_START_TIME_ISO__');
-        const showNorthSatellitesEl = document.getElementById('showNorthSatellites');
-        const showSouthSatellitesEl = document.getElementById('showSouthSatellites');
         const showGroundStationsEl = document.getElementById('showGroundStations');
         const showUsersEl = document.getElementById('showUsers');
         const showPopsEl = document.getElementById('showPops');
         const shellSummaryEl = document.getElementById('shellSummary');
+        const shellControlsEl = document.getElementById('shellControls');
+
+        // shellLabel -> { showShell: bool, showNorth: bool, showSouth: bool }
+        const shellVisibility = new Map();
+
+        function getShellKeyFromSatellite(satOrEntity) {
+            const key = satOrEntity && (satOrEntity.shell_label || satOrEntity.shellLabel);
+            return (typeof key === 'string' && key.length) ? key : 'unknown';
+        }
+
+        function ensureShellVisibility(key) {
+            if (!shellVisibility.has(key)) {
+                shellVisibility.set(key, { showShell: true, showNorth: true, showSouth: true });
+            }
+            return shellVisibility.get(key);
+        }
 
         const orbitColorCache = new Map();
 
@@ -484,24 +495,110 @@ HTML_TEMPLATE = """
                 return;
             }
             shellSummaryEl.textContent = shellSummary
-                .map((item) => `${item.label}: ${item.count}`)
+                .map((item) => {
+                    const oc = (typeof item.orbit_count === 'number') ? `, 轨道=${item.orbit_count}` : '';
+                    return `${item.label}: ${item.count}${oc}`;
+                })
                 .join(' | ');
         }
 
+        function renderShellControls() {
+            if (!shellControlsEl) {
+                return;
+            }
+            shellControlsEl.innerHTML = '';
+            if (!Array.isArray(shellSummary) || shellSummary.length === 0) {
+                shellControlsEl.textContent = '无';
+                return;
+            }
+
+            shellSummary.forEach((item, idx) => {
+                const label = (item && item.label) ? String(item.label) : `Shell-${idx}`;
+                const count = (item && typeof item.count === 'number') ? item.count : 0;
+                const v = ensureShellVisibility(label);
+
+                const row = document.createElement('div');
+                row.style.display = 'block';
+                row.style.padding = '3px 0';
+                row.style.borderBottom = '1px solid rgba(255,255,255,0.08)';
+
+                const shellIdSafe = label.replace(/[^a-zA-Z0-9_-]/g, '_');
+                const shellCbId = `shellShow_${shellIdSafe}`;
+                const northCbId = `shellNorth_${shellIdSafe}`;
+                const southCbId = `shellSouth_${shellIdSafe}`;
+
+                row.innerHTML = `
+                    <label style="display:block; cursor:pointer;">
+                        <input type="checkbox" id="${shellCbId}" ${v.showShell ? 'checked' : ''}>
+                        <span>${label}</span>
+                        <span style="opacity:0.85;">（${count}）</span>
+                    </label>
+                    <div style="margin-left: 18px; opacity:0.95;">
+                        <label style="margin-right: 10px; cursor:pointer;"><input type="checkbox" id="${northCbId}" ${v.showNorth ? 'checked' : ''}> 北上</label>
+                        <label style="margin-right: 10px; cursor:pointer;"><input type="checkbox" id="${southCbId}" ${v.showSouth ? 'checked' : ''}> 南下</label>
+                    </div>
+                `;
+
+                shellControlsEl.appendChild(row);
+
+                const shellCb = document.getElementById(shellCbId);
+                const northCb = document.getElementById(northCbId);
+                const southCb = document.getElementById(southCbId);
+
+                function syncDisabledState() {
+                    const enabled = shellCb && shellCb.checked;
+                    if (northCb) northCb.disabled = !enabled;
+                    if (southCb) southCb.disabled = !enabled;
+                }
+
+                if (shellCb) {
+                    shellCb.addEventListener('change', () => {
+                        const vv = ensureShellVisibility(label);
+                        vv.showShell = !!shellCb.checked;
+                        syncDisabledState();
+                        refreshVisibility();
+                    });
+                }
+                if (northCb) {
+                    northCb.addEventListener('change', () => {
+                        const vv = ensureShellVisibility(label);
+                        vv.showNorth = !!northCb.checked;
+                        refreshVisibility();
+                    });
+                }
+                if (southCb) {
+                    southCb.addEventListener('change', () => {
+                        const vv = ensureShellVisibility(label);
+                        vv.showSouth = !!southCb.checked;
+                        refreshVisibility();
+                    });
+                }
+
+                syncDisabledState();
+            });
+        }
+
         function applyIndependentVisibility() {
-            const showNorth = showNorthSatellitesEl.checked;
-            const showSouth = showSouthSatellitesEl.checked;
+            // Global north/south switches removed; per-shell toggles control direction visibility.
+            const showNorth = true;
+            const showSouth = true;
             const showGroundStations = showGroundStationsEl.checked;
             const showUsers = showUsersEl.checked;
             const showPops = showPopsEl.checked;
 
             satelliteEntities.forEach((entity) => {
+                const shellKey = getShellKeyFromSatellite(entity);
+                const v = ensureShellVisibility(shellKey);
+                if (!v.showShell) {
+                    entity.show = false;
+                    return;
+                }
                 if (entity.directionKey === 'northbound') {
-                    entity.show = showNorth;
+                    entity.show = showNorth && v.showNorth;
                 } else if (entity.directionKey === 'southbound') {
-                    entity.show = showSouth;
+                    entity.show = showSouth && v.showSouth;
                 } else {
-                    entity.show = showNorth || showSouth;
+                    entity.show = (showNorth && v.showNorth) || (showSouth && v.showSouth);
                 }
             });
 
@@ -545,23 +642,17 @@ HTML_TEMPLATE = """
         }
 
         function updateDirectionStylingAndCounts(currentTime) {
-            let northboundCount = 0;
-            let southboundCount = 0;
-            let unknownDirectionCount = 0;
-
             satelliteEntities.forEach((entity) => {
                 const direction = getDirectionAtTime(entity, currentTime);
                 entity.directionKey = direction;
 
                 if (direction === 'northbound') {
-                    northboundCount += 1;
                     entity.point.outlineColor = Cesium.Color.CYAN;
                     entity.path.material = entity.baseColor.withAlpha(0.55);
                     if (showLabels) {
                         entity.label.text = entity.baseName + ' ↑';
                     }
                 } else if (direction === 'southbound') {
-                    southboundCount += 1;
                     entity.point.outlineColor = Cesium.Color.MAGENTA;
                     entity.path.material = new Cesium.PolylineDashMaterialProperty({
                         color: entity.baseColor.withAlpha(0.8),
@@ -571,7 +662,6 @@ HTML_TEMPLATE = """
                         entity.label.text = entity.baseName + ' ↓';
                     }
                 } else {
-                    unknownDirectionCount += 1;
                     entity.point.outlineColor = Cesium.Color.WHITE;
                     entity.path.material = entity.baseColor.withAlpha(0.55);
                     if (showLabels) {
@@ -584,13 +674,8 @@ HTML_TEMPLATE = """
                     `TLE Line 2: ${entity.tleLine2}`;
             });
 
-            document.getElementById('northboundCount').textContent = String(northboundCount);
-            document.getElementById('southboundCount').textContent = String(southboundCount);
-            document.getElementById('unknownDirectionCount').textContent = String(unknownDirectionCount);
         }
 
-        showNorthSatellitesEl.addEventListener('change', refreshVisibility);
-        showSouthSatellitesEl.addEventListener('change', refreshVisibility);
         showGroundStationsEl.addEventListener('change', refreshVisibility);
         showUsersEl.addEventListener('change', refreshVisibility);
         showPopsEl.addEventListener('change', refreshVisibility);
@@ -616,6 +701,7 @@ HTML_TEMPLATE = """
         updateDirectionStylingAndCounts(startTime);
         refreshVisibility();
         renderShellSummary();
+        renderShellControls();
         viewer.scene.requestRender();
         statusEl.textContent = `已加载 ${satelliteEntities.length} 颗，失败 ${failedCount} 颗`;
         console.log(`成功加载 ${satelliteEntities.length} 颗卫星，${groundStationEntities.length} 个地面站，${userEntities.length} 个用户点，${popEntities.length} 个POP，失败 ${failedCount} 颗卫星。`);
@@ -626,9 +712,23 @@ HTML_TEMPLATE = """
 """
 
 
-def read_tle_file(file_path: Path):
+def _infer_shell_id_from_filename(path: Path):
+    m = re.search(r"shell[_-]?(\d+)", path.stem, flags=re.IGNORECASE)
+    if not m:
+        return None
+    try:
+        return int(m.group(1))
+    except ValueError:
+        return None
+
+
+def read_tle_file(file_path: Path, shell_id: int, shell_label: str):
     satellites = []
-    lines = [line.strip() for line in file_path.read_text(encoding="utf-8", errors="ignore").splitlines() if line.strip()]
+    lines = [
+        line.strip()
+        for line in file_path.read_text(encoding="utf-8", errors="ignore").splitlines()
+        if line.strip()
+    ]
 
     i = 0
     auto_index = 1
@@ -653,8 +753,25 @@ def read_tle_file(file_path: Path):
                 "name": name,
                 "tle_line1": tle_line1,
                 "tle_line2": tle_line2,
+                "shell_id": shell_id,
+                "shell_label": shell_label,
             }
         )
+
+    return satellites
+
+
+def load_satellites_from_tle_files(tle_files):
+    satellites = []
+    auto_shell_id = 1
+
+    for p in tle_files:
+        shell_id = _infer_shell_id_from_filename(p)
+        if shell_id is None:
+            shell_id = auto_shell_id
+            auto_shell_id += 1
+        shell_label = f"Shell-{shell_id:03d}"
+        satellites.extend(read_tle_file(p, shell_id=shell_id, shell_label=shell_label))
 
     return satellites
 
@@ -852,26 +969,27 @@ def read_pops_file(file_path: Path):
 
 
 def assign_shell_layers(satellites):
-    shell_label = "Shell-00"
-    for sat in satellites:
-        sat["shell_id"] = 0
-        sat["shell_label"] = shell_label
-
     if not satellites:
         return []
 
-    return [
-        {
-            "shell_id": 0,
-            "label": shell_label,
-            "count": len(satellites),
-            "avg_altitude_km": None,
-            "avg_inclination_deg": None,
-        }
-    ]
+    shells = {}
+    for sat in satellites:
+        sid = sat.get("shell_id")
+        label = sat.get("shell_label") or (f"Shell-{int(sid):03d}" if isinstance(sid, int) else "Shell-unknown")
+        if sid not in shells:
+            shells[sid] = {
+                "shell_id": sid if isinstance(sid, int) else 0,
+                "label": label,
+                "count": 0,
+                "avg_altitude_km": None,
+                "avg_inclination_deg": None,
+            }
+        shells[sid]["count"] += 1
+
+    return [shells[k] for k in sorted(shells.keys(), key=lambda x: (isinstance(x, int) is False, x))]
 
 
-def cluster_orbits_by_raan(satellites, raan_threshold_deg: float):
+def cluster_orbits_by_raan(satellites, raan_threshold_deg: float, orbit_id_base: int = 0):
     records = []
     for idx, sat in enumerate(satellites):
         try:
@@ -908,11 +1026,31 @@ def cluster_orbits_by_raan(satellites, raan_threshold_deg: float):
     clusters = sorted(clusters, key=lambda c: circular_mean_deg([item[1] for item in c]))
     for orbit_id, cluster in enumerate(clusters):
         for sat_index, _ in cluster:
-            satellites[sat_index]["orbit_id"] = orbit_id
+            satellites[sat_index]["orbit_id"] = orbit_id_base + orbit_id
 
     for sat in satellites:
         if "orbit_id" not in sat:
-            sat["orbit_id"] = 0
+            sat["orbit_id"] = orbit_id_base
+
+    return len(clusters)
+
+
+def cluster_orbits_per_shell(satellites, raan_threshold_deg: float):
+    shell_to_indices = {}
+    for idx, sat in enumerate(satellites):
+        sid = sat.get("shell_id")
+        shell_to_indices.setdefault(sid, []).append(idx)
+
+    shell_orbit_counts = {}
+    for sid, indices in shell_to_indices.items():
+        group = [satellites[i] for i in indices]
+        base = int(sid) * 1000 if isinstance(sid, int) else 0
+        orbit_count = cluster_orbits_by_raan(group, raan_threshold_deg, orbit_id_base=base)
+        shell_orbit_counts[sid] = orbit_count
+        # Write back orbit_id to original list (group entries are same dict refs)
+        # so no extra copy needed.
+
+    return shell_orbit_counts
 
 
 def parse_tle_epoch_utc(tle_line1: str):
@@ -974,7 +1112,12 @@ def main():
     default_ground_stations_file = str(Path(__file__).resolve().with_name("ground_stations.basic.txt"))
     default_users_file = str(Path(__file__).resolve().with_name("user.txt"))
     default_pops_file = str(Path(__file__).resolve().with_name("pop.txt"))
-    parser.add_argument("tle_file", nargs="?", default="shell_29.txt", help="输入 TLE 文件路径，默认 shell_29.txt")
+    parser.add_argument(
+        "tle_files",
+        nargs="*",
+        default=["shell_29.txt"],
+        help="输入 TLE 文件路径（可多个，例如 shell_095.tle shell_096.tle shell_129.tle），默认 shell_29.txt",
+    )
     parser.add_argument("--output", default="satellites_visualization.html", help="输出 HTML 路径")
     parser.add_argument("--duration-minutes", type=int, default=60, help="轨迹时长（分钟），默认 60")
     parser.add_argument("--time-step-seconds", type=int, default=120, help="轨迹采样步长（秒），默认 120")
@@ -986,12 +1129,13 @@ def main():
     parser.add_argument("--max-users", type=int, default=0, help="最多可视化用户点数量，0 表示全部")
     args = parser.parse_args()
 
-    tle_path = Path(args.tle_file)
-    if not tle_path.exists():
-        print(f"错误：找不到输入文件 {tle_path}")
-        return
+    tle_paths = [Path(p) for p in args.tle_files]
+    for p in tle_paths:
+        if not p.exists():
+            print(f"错误：找不到输入文件 {p}")
+            return
 
-    satellites = read_tle_file(tle_path)
+    satellites = load_satellites_from_tle_files(tle_paths)
     if not satellites:
         print("错误：未解析到有效 TLE 数据")
         return
@@ -999,8 +1143,12 @@ def main():
     if args.max_satellites > 0:
         satellites = satellites[: args.max_satellites]
 
-    cluster_orbits_by_raan(satellites, args.raan_threshold)
+    shell_orbit_counts = cluster_orbits_per_shell(satellites, args.raan_threshold)
     shell_summary = assign_shell_layers(satellites)
+    # Optionally attach orbit counts without changing UI expectations.
+    for item in shell_summary:
+        sid = item.get("shell_id")
+        item["orbit_count"] = shell_orbit_counts.get(sid)
 
     ground_stations = []
     if args.ground_stations:
