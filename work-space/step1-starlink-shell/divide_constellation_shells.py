@@ -7,15 +7,20 @@ and groups satellites into shells based on similar altitude and inclination valu
 
 Usage:
     python divide_constellation_shells.py <input_tle_file> [options]
-    python divide_constellation_shells.py tles.txt --altitude-tolerance 100 --inclination-tolerance 0.5
+
+Examples:
+    # Cluster into shells (transitive closure) and write per-shell TLE files
+    python divide_constellation_shells.py tles.txt --altitude-tolerance 1 --inclination-tolerance 0.1 --output-tle-dir shells_tle
+
+    # Additionally write per-shell statistics
+    python divide_constellation_shells.py tles.txt --output-shell-stats-csv out/shell_stats.csv --output-shell-stats-json out/shell_stats.json
 """
 
 import argparse
-import csv
 import json
 from collections import defaultdict
 from pathlib import Path
-from typing import Dict, List, Tuple
+from typing import DefaultDict, Dict, List, Optional, Tuple
 
 import numpy as np
 
@@ -142,7 +147,13 @@ class ConstellationShellDivider:
 
     def divide_into_shells(self, satellites: List[Dict]) -> Dict[int, List[Dict]]:
         """
-        Divide satellites into shells using clustering based on altitude and inclination.
+        Divide satellites into shells using transitive-closure clustering (connected components)
+        based on altitude and inclination.
+
+        Two satellites are considered neighbors if:
+            |alt_i - alt_j| <= altitude_tolerance AND |inc_i - inc_j| <= inclination_tolerance
+
+        Shells are the connected components under this neighbor relation.
 
         Returns:
             Dictionary mapping shell_id to list of satellites in that shell.
@@ -150,35 +161,78 @@ class ConstellationShellDivider:
         if not satellites:
             return {}
 
-        shells = {}
-        shell_id = 0
-        used_satellites = set()
+        class _UnionFind:
+            def __init__(self, n: int):
+                self.parent = list(range(n))
+                self.size = [1] * n
 
-        # Sort by altitude then inclination for more consistent grouping
-        sorted_sats = sorted(satellites, key=lambda x: (x["altitude"], x["inclination"]))
+            def find(self, x: int) -> int:
+                while self.parent[x] != x:
+                    self.parent[x] = self.parent[self.parent[x]]
+                    x = self.parent[x]
+                return x
 
-        for sat in sorted_sats:
-            if id(sat) in used_satellites:
-                continue
+            def union(self, a: int, b: int) -> None:
+                ra = self.find(a)
+                rb = self.find(b)
+                if ra == rb:
+                    return
+                if self.size[ra] < self.size[rb]:
+                    ra, rb = rb, ra
+                self.parent[rb] = ra
+                self.size[ra] += self.size[rb]
 
-            # Start a new shell
-            current_shell = [sat]
-            used_satellites.add(id(sat))
+        def _cell_index(value: float, cell_size: float) -> int:
+            # floor division is fine because altitude/inclination are non-negative here
+            return int(value // cell_size)
 
-            # Find all satellites within tolerance of this one
-            for other_sat in sorted_sats:
-                if id(other_sat) in used_satellites:
-                    continue
+        n = len(satellites)
+        altitudes = [s["altitude"] for s in satellites]
+        inclinations = [s["inclination"] for s in satellites]
 
-                alt_diff = abs(sat["altitude"] - other_sat["altitude"])
-                inc_diff = abs(sat["inclination"] - other_sat["inclination"])
+        bins: DefaultDict[Tuple[int, int], List[int]] = defaultdict(list)
+        for i in range(n):
+            key = (
+                _cell_index(altitudes[i], self.altitude_tolerance),
+                _cell_index(inclinations[i], self.inclination_tolerance),
+            )
+            bins[key].append(i)
 
-                if alt_diff <= self.altitude_tolerance and inc_diff <= self.inclination_tolerance:
-                    current_shell.append(other_sat)
-                    used_satellites.add(id(other_sat))
+        uf = _UnionFind(n)
 
-            shells[shell_id] = current_shell
-            shell_id += 1
+        # Only compare points within the 3x3 neighborhood of each grid cell.
+        # Compare j > i to avoid duplicate checks.
+        for (a_bin, i_bin), indices in bins.items():
+            neighbor_cells = [(a_bin + da, i_bin + di) for da in (-1, 0, 1) for di in (-1, 0, 1)]
+            for idx in indices:
+                a0 = altitudes[idx]
+                i0 = inclinations[idx]
+                for nb in neighbor_cells:
+                    for j in bins.get(nb, []):
+                        if j <= idx:
+                            continue
+                        if (
+                            abs(a0 - altitudes[j]) <= self.altitude_tolerance
+                            and abs(i0 - inclinations[j]) <= self.inclination_tolerance
+                        ):
+                            uf.union(idx, j)
+
+        # Group satellites by component root
+        comps: DefaultDict[int, List[int]] = defaultdict(list)
+        for i in range(n):
+            comps[uf.find(i)].append(i)
+
+        # Deterministic shell ids: sort components by (mean altitude, mean inclination, size desc)
+        comp_summaries = []
+        for root, idxs in comps.items():
+            mean_alt = float(np.mean([altitudes[i] for i in idxs]))
+            mean_inc = float(np.mean([inclinations[i] for i in idxs]))
+            comp_summaries.append((mean_alt, mean_inc, -len(idxs), root))
+        comp_summaries.sort()
+
+        shells: Dict[int, List[Dict]] = {}
+        for shell_id, (_, _, _, root) in enumerate(comp_summaries):
+            shells[shell_id] = [satellites[i] for i in comps[root]]
 
         return shells
 
@@ -267,76 +321,161 @@ def print_shell_summary(shells: Dict, analysis: Dict):
     print("-" * 80)
 
 
-def export_shells_to_csv(shells: Dict, output_file: str):
-    """Export shell division results to CSV file."""
-    with open(output_file, "w", newline="") as f:
-        writer = csv.writer(f)
-        writer.writerow(["shell_id", "satellite_name", "satellite_id", "altitude_km", "inclination_deg", 
-                        "eccentricity", "mean_motion"])
+def _safe_stats(values: List[float]) -> Dict[str, Optional[float]]:
+    if not values:
+        return {"min": None, "max": None, "mean": None, "std": None, "median": None}
 
-        # Sort by shell_id for consistent output
-        for shell_id in sorted(shells.keys()):
-            for sat in shells[shell_id]:
-                writer.writerow(
-                    [
-                        shell_id,
-                        sat["name"],
-                        sat["id"],
-                        f"{sat['altitude']:.2f}",
-                        f"{sat['inclination']:.4f}",
-                        f"{sat['eccentricity']:.6f}",
-                        f"{sat['mean_motion']:.8f}",
-                    ]
-                )
-
-    print(f"\nResults exported to: {output_file}")
+    vmin = float(min(values))
+    vmax = float(max(values))
+    median = float(np.median(values))
+    mean = float(np.mean(values))
+    std = 0.0 if len(values) == 1 else float(np.std(values))
+    return {"min": vmin, "max": vmax, "mean": mean, "std": std, "median": median}
 
 
-def export_shells_to_json(shells: Dict, analysis: Dict, output_file: str):
-    """Export shell division results to JSON file."""
-    json_data = {
-        "metadata": {
-            "total_shells": analysis["num_shells"],
-            "total_satellites": analysis["total_satellites"],
-        },
-        "shells": {},
-    }
+def compute_shell_stats(shells: Dict[int, List[Dict]]) -> Tuple[Dict[int, Dict], Dict]:
+    """Compute per-shell statistics similar to summarize_shells.py output."""
+    stats_by_shell: Dict[int, Dict] = {}
 
-    for shell_id, satellites_in_shell in shells.items():
-        shell_id_str = str(shell_id)
-        json_data["shells"][shell_id_str] = {
-            "num_satellites": len(satellites_in_shell),
-            "satellites": [
-                {
-                    "name": s["name"],
-                    "id": s["id"],
-                    "altitude_km": round(s["altitude"], 2),
-                    "inclination_deg": round(s["inclination"], 4),
-                    "eccentricity": round(s["eccentricity"], 6),
-                    "mean_motion": round(s["mean_motion"], 8),
-                }
-                for s in satellites_in_shell
-            ],
-            "statistics": {
-                "altitude_mean": round(analysis["shells"][shell_id]["altitude_mean"], 2),
-                "altitude_std": round(analysis["shells"][shell_id]["altitude_std"], 2),
-                "altitude_range": [
-                    round(analysis["shells"][shell_id]["altitude_range"][0], 2),
-                    round(analysis["shells"][shell_id]["altitude_range"][1], 2),
-                ],
-                "inclination_mean": round(analysis["shells"][shell_id]["inclination_mean"], 4),
-                "inclination_std": round(analysis["shells"][shell_id]["inclination_std"], 4),
-                "inclination_range": [
-                    round(analysis["shells"][shell_id]["inclination_range"][0], 4),
-                    round(analysis["shells"][shell_id]["inclination_range"][1], 4),
-                ],
-            },
+    rows_seen = 0
+    missing_altitude = 0
+    missing_inclination = 0
+
+    for shell_id, sats in shells.items():
+        rows_seen += len(sats)
+        altitudes = []
+        inclinations = []
+        eccentricities = []
+        mean_motions = []
+
+        for s in sats:
+            alt = s.get("altitude")
+            inc = s.get("inclination")
+            if alt is None or not np.isfinite(alt):
+                missing_altitude += 1
+            else:
+                altitudes.append(float(alt))
+
+            if inc is None or not np.isfinite(inc):
+                missing_inclination += 1
+            else:
+                inclinations.append(float(inc))
+
+            ecc = s.get("eccentricity")
+            if ecc is not None and np.isfinite(ecc):
+                eccentricities.append(float(ecc))
+
+            mm = s.get("mean_motion")
+            if mm is not None and np.isfinite(mm):
+                mean_motions.append(float(mm))
+
+        stats_by_shell[shell_id] = {
+            "shell_id": shell_id,
+            "count": len(sats),
+            "altitude_km": _safe_stats(altitudes),
+            "inclination_deg": _safe_stats(inclinations),
+            "eccentricity": _safe_stats(eccentricities) if eccentricities else None,
+            "mean_motion_rev_per_day": _safe_stats(mean_motions) if mean_motions else None,
         }
 
-    with open(output_file, "w") as f:
-        json.dump(json_data, f, indent=2)
+    overall = {
+        "rows_seen": rows_seen,
+        "shells": len(stats_by_shell),
+        "missing_altitude": missing_altitude,
+        "missing_inclination": missing_inclination,
+    }
 
-    print(f"Results exported to: {output_file}")
+    return stats_by_shell, overall
+
+
+def write_shell_stats_csv(stats_by_shell: Dict[int, Dict], out_csv_path: str) -> None:
+    import csv
+
+    out_path = Path(out_csv_path)
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+
+    def get(d: Dict, path: str):
+        cur = d
+        for part in path.split("."):
+            if cur is None:
+                return None
+            cur = cur.get(part)
+        return cur
+
+    fieldnames = [
+        "shell_id",
+        "count",
+        "altitude_min_km",
+        "altitude_max_km",
+        "altitude_mean_km",
+        "altitude_std_km",
+        "altitude_median_km",
+        "inclination_min_deg",
+        "inclination_max_deg",
+        "inclination_mean_deg",
+        "inclination_std_deg",
+        "inclination_median_deg",
+        "eccentricity_mean",
+        "eccentricity_std",
+        "mean_motion_mean_rev_per_day",
+        "mean_motion_std_rev_per_day",
+    ]
+
+    with open(out_path, "w", newline="") as f:
+        w = csv.DictWriter(f, fieldnames=fieldnames)
+        w.writeheader()
+        for shell_id in sorted(stats_by_shell.keys()):
+            s = stats_by_shell[shell_id]
+            row = {
+                "shell_id": shell_id,
+                "count": s.get("count"),
+                "altitude_min_km": get(s, "altitude_km.min"),
+                "altitude_max_km": get(s, "altitude_km.max"),
+                "altitude_mean_km": get(s, "altitude_km.mean"),
+                "altitude_std_km": get(s, "altitude_km.std"),
+                "altitude_median_km": get(s, "altitude_km.median"),
+                "inclination_min_deg": get(s, "inclination_deg.min"),
+                "inclination_max_deg": get(s, "inclination_deg.max"),
+                "inclination_mean_deg": get(s, "inclination_deg.mean"),
+                "inclination_std_deg": get(s, "inclination_deg.std"),
+                "inclination_median_deg": get(s, "inclination_deg.median"),
+                "eccentricity_mean": get(s, "eccentricity.mean"),
+                "eccentricity_std": get(s, "eccentricity.std"),
+                "mean_motion_mean_rev_per_day": get(s, "mean_motion_rev_per_day.mean"),
+                "mean_motion_std_rev_per_day": get(s, "mean_motion_rev_per_day.std"),
+            }
+            w.writerow(row)
+
+
+def write_shell_stats_json(stats_by_shell: Dict[int, Dict], overall: Dict, out_json_path: str) -> None:
+    out_path = Path(out_json_path)
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    payload = {
+        "overall": overall,
+        "shells": [stats_by_shell[sid] for sid in sorted(stats_by_shell.keys())],
+    }
+    with open(out_path, "w") as f:
+        json.dump(payload, f, indent=2, sort_keys=False)
+
+
+def export_shells_to_tle_files(shells: Dict, output_dir: str, file_prefix: str = "shell"):
+    """Export each shell to a separate TLE file (3 lines per satellite: name, tle1, tle2)."""
+    out_dir = Path(output_dir)
+    out_dir.mkdir(parents=True, exist_ok=True)
+
+    written = 0
+    for shell_id in sorted(shells.keys(), key=lambda k: str(k)):
+        sats = shells[shell_id]
+        out_path = out_dir / f"{file_prefix}_{shell_id}.tle"
+        with open(out_path, "w") as f:
+            for sat in sats:
+                # Preserve original input lines for compatibility.
+                f.write(f"{sat['name']}\n")
+                f.write(f"{sat['tle1']}\n")
+                f.write(f"{sat['tle2']}\n")
+        written += 1
+
+    print(f"\nWrote {written} shell TLE file(s) to: {out_dir}")
 
 
 def main():
@@ -351,8 +490,8 @@ Examples:
   # Custom tolerances
   python divide_constellation_shells.py tles.txt --altitude-tolerance 50 --inclination-tolerance 1.0
   
-  # Export results
-  python divide_constellation_shells.py tles.txt --output-csv shells.csv --output-json shells.json
+    # Export each shell as its own TLE file
+    python divide_constellation_shells.py tles.txt --output-tle-dir shells_tle
   
   # Use grid-based binning instead of clustering
   python divide_constellation_shells.py tles.txt --method grid
@@ -379,12 +518,24 @@ Examples:
         help="Division method: clustering or grid-based binning (default: clustering)",
     )
     parser.add_argument(
-        "--output-csv",
-        help="Output CSV file path",
+        "--output-tle-dir",
+        default=None,
+        help="If set, export each shell to a separate .tle file in this directory (TLE 3-line format).",
     )
     parser.add_argument(
-        "--output-json",
-        help="Output JSON file path",
+        "--output-tle-prefix",
+        default="shell",
+        help="Prefix for per-shell TLE output files (default: shell).",
+    )
+    parser.add_argument(
+        "--output-shell-stats-csv",
+        default=None,
+        help="If set, write per-shell summary statistics CSV to this path.",
+    )
+    parser.add_argument(
+        "--output-shell-stats-json",
+        default=None,
+        help="If set, write per-shell summary statistics JSON to this path.",
     )
 
     args = parser.parse_args()
@@ -416,12 +567,17 @@ Examples:
     # Print summary
     print_shell_summary(shells, analysis)
 
-    # Export results
-    if args.output_csv:
-        export_shells_to_csv(shells, args.output_csv)
+    if args.output_tle_dir:
+        export_shells_to_tle_files(shells, args.output_tle_dir, file_prefix=args.output_tle_prefix)
 
-    if args.output_json:
-        export_shells_to_json(shells, analysis, args.output_json)
+    if args.output_shell_stats_csv or args.output_shell_stats_json:
+        stats_by_shell, overall = compute_shell_stats(shells)
+        if args.output_shell_stats_csv:
+            write_shell_stats_csv(stats_by_shell, args.output_shell_stats_csv)
+            print(f"Wrote shell stats CSV: {args.output_shell_stats_csv}")
+        if args.output_shell_stats_json:
+            write_shell_stats_json(stats_by_shell, overall, args.output_shell_stats_json)
+            print(f"Wrote shell stats JSON: {args.output_shell_stats_json}")
 
     # Print detailed altitude and inclination ranges
     print("\n" + "=" * 80)
