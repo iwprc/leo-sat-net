@@ -96,14 +96,12 @@ HTML_TEMPLATE = """
         <div>卫星数量：__SAT_COUNT__</div>
         <div>地面站数量：__GS_COUNT__</div>
         <div>用户数量：__USER_COUNT__</div>
-        <div>POP数量：__POP_COUNT__</div>
         <div>轨迹时长：__DURATION_MINUTES__ 分钟</div>
         <div>采样步长：__TIME_STEP_SECONDS__ 秒</div>
         <div>TLE 起始时刻：<span id="tleEpochTime">__TLE_START_TIME_LABEL__</span></div>
         <div style="margin-top: 6px;">
             <label style="display: block;"><input type="checkbox" id="showGroundStations" checked> 显示地面站</label>
             <label style="display: block;"><input type="checkbox" id="showUsers" checked> 显示用户分布</label>
-            <label style="display: block;"><input type="checkbox" id="showPops" checked> 显示POP</label>
         </div>
         <div style="margin-top: 6px;">壳层统计：<span id="shellSummary">加载中...</span></div>
         <div style="margin-top: 6px;">壳层显示（每层可选北上/南下）：</div>
@@ -274,14 +272,12 @@ HTML_TEMPLATE = """
         const rawSatellites = __SATELLITES_JSON__;
         const rawGroundStations = __GROUND_STATIONS_JSON__;
         const rawUsers = __USERS_JSON__;
-        const rawPops = __POPS_JSON__;
         const shellSummary = __SHELL_SUMMARY_JSON__;
         const durationMinutes = __DURATION_MINUTES__;
         const timeStepInSeconds = __TIME_STEP_SECONDS__;
         const tleStartTime = Cesium.JulianDate.fromIso8601('__TLE_START_TIME_ISO__');
         const showGroundStationsEl = document.getElementById('showGroundStations');
         const showUsersEl = document.getElementById('showUsers');
-        const showPopsEl = document.getElementById('showPops');
         const shellSummaryEl = document.getElementById('shellSummary');
         const shellControlsEl = document.getElementById('shellControls');
 
@@ -318,7 +314,6 @@ HTML_TEMPLATE = """
         const satelliteEntities = [];
         const groundStationEntities = [];
         const userEntities = [];
-        const popEntities = [];
         let failedCount = 0;
 
         const showLabels = rawSatellites.length <= 200;
@@ -360,10 +355,10 @@ HTML_TEMPLATE = """
                     position: positionProperty,
                     orientation: new Cesium.VelocityOrientationProperty(positionProperty),
                     point: {
-                        pixelSize: 10,
+                        pixelSize: 8,
                         color: color,
                         outlineColor: Cesium.Color.WHITE,
-                        outlineWidth: 1.5
+                        outlineWidth: 1
                     },
                     path: {
                         show: showPaths,
@@ -406,10 +401,10 @@ HTML_TEMPLATE = """
                 name: `GS-${gs.id}-${displayName}`,
                 position,
                 point: {
-                    pixelSize: 8,
+                    pixelSize: 5,
                     color: Cesium.Color.YELLOW,
                     outlineColor: Cesium.Color.BLACK,
-                    outlineWidth: 1.2,
+                    outlineWidth: 1,
                     disableDepthTestDistance: 0
                 },
                 label: {
@@ -436,7 +431,7 @@ HTML_TEMPLATE = """
                 name: user.name,
                 position,
                 point: {
-                    pixelSize: 4,
+                    pixelSize: 3,
                     color: Cesium.Color.LIME,
                     outlineColor: Cesium.Color.BLACK,
                     outlineWidth: 0.8,
@@ -457,36 +452,6 @@ HTML_TEMPLATE = """
                 description: `用户: ${user.name}<br/>纬度: ${user.latitude_deg}<br/>经度: ${user.longitude_deg}<br/>权重: ${user.weight}`
             });
             userEntities.push(entity);
-        });
-
-        const showPopLabels = rawPops.length <= 120;
-        rawPops.forEach((pop) => {
-            const position = Cesium.Cartesian3.fromDegrees(pop.longitude_deg, pop.latitude_deg, 0);
-            const entity = viewer.entities.add({
-                name: `POP-${pop.name}`,
-                position,
-                point: {
-                    pixelSize: 7,
-                    color: Cesium.Color.ORANGE,
-                    outlineColor: Cesium.Color.BLACK,
-                    outlineWidth: 1.0,
-                    disableDepthTestDistance: 0
-                },
-                label: {
-                    text: pop.name,
-                    font: '11px sans-serif',
-                    show: showPopLabels,
-                    showBackground: true,
-                    backgroundColor: new Cesium.Color(0.2, 0.12, 0.02, 0.75),
-                    pixelOffset: new Cesium.Cartesian2(0, -12),
-                    horizontalOrigin: Cesium.HorizontalOrigin.CENTER,
-                    verticalOrigin: Cesium.VerticalOrigin.BOTTOM,
-                    disableDepthTestDistance: 0,
-                    distanceDisplayCondition: new Cesium.DistanceDisplayCondition(0, 15000000)
-                },
-                description: `POP: ${pop.name}<br/>纬度: ${pop.latitude_deg}<br/>经度: ${pop.longitude_deg}`
-            });
-            popEntities.push(entity);
         });
 
         function renderShellSummary() {
@@ -584,7 +549,6 @@ HTML_TEMPLATE = """
             const showSouth = true;
             const showGroundStations = showGroundStationsEl.checked;
             const showUsers = showUsersEl.checked;
-            const showPops = showPopsEl.checked;
 
             satelliteEntities.forEach((entity) => {
                 const shellKey = getShellKeyFromSatellite(entity);
@@ -607,9 +571,6 @@ HTML_TEMPLATE = """
             });
             userEntities.forEach((entity) => {
                 entity.show = showUsers;
-            });
-            popEntities.forEach((entity) => {
-                entity.show = showPops;
             });
         }
 
@@ -678,7 +639,6 @@ HTML_TEMPLATE = """
 
         showGroundStationsEl.addEventListener('change', refreshVisibility);
         showUsersEl.addEventListener('change', refreshVisibility);
-        showPopsEl.addEventListener('change', refreshVisibility);
 
         viewer.clock.startTime = startTime.clone();
         viewer.clock.stopTime = stopTime.clone();
@@ -704,7 +664,7 @@ HTML_TEMPLATE = """
         renderShellControls();
         viewer.scene.requestRender();
         statusEl.textContent = `已加载 ${satelliteEntities.length} 颗，失败 ${failedCount} 颗`;
-        console.log(`成功加载 ${satelliteEntities.length} 颗卫星，${groundStationEntities.length} 个地面站，${userEntities.length} 个用户点，${popEntities.length} 个POP，失败 ${failedCount} 颗卫星。`);
+        console.log(`成功加载 ${satelliteEntities.length} 颗卫星，${groundStationEntities.length} 个地面站，${userEntities.length} 个用户点，失败 ${failedCount} 颗卫星。`);
         })();
     </script>
 </body>
@@ -898,76 +858,6 @@ def read_users_file(file_path: Path):
 
     return users
 
-
-def read_pops_file(file_path: Path):
-    pops = []
-
-    def _normalize_header(text: str) -> str:
-        return text.strip().lower().replace(" ", "_")
-
-    with file_path.open("r", encoding="utf-8", newline="") as f:
-        reader = csv.reader(f)
-        rows = [row for row in reader if row and any(cell.strip() for cell in row)]
-
-    if not rows:
-        return pops
-
-    first_row = rows[0]
-    normalized_headers = [_normalize_header(cell) for cell in first_row]
-    lat_candidates = {"lat", "latitude", "latitude_deg", "lat_deg", "纬度"}
-    lon_candidates = {"lon", "lng", "longitude", "longitude_deg", "lon_deg", "经度"}
-    name_candidates = {"pop", "name", "id"}
-
-    header_mode = any(h in lat_candidates or h in lon_candidates for h in normalized_headers)
-
-    lat_idx = lon_idx = name_idx = None
-    start_index = 0
-    if header_mode:
-        start_index = 1
-        for idx, header in enumerate(normalized_headers):
-            if lat_idx is None and header in lat_candidates:
-                lat_idx = idx
-            if lon_idx is None and header in lon_candidates:
-                lon_idx = idx
-            if name_idx is None and header in name_candidates:
-                name_idx = idx
-
-    auto_index = 1
-    for row in rows[start_index:]:
-        try:
-            if header_mode and lat_idx is not None and lon_idx is not None:
-                latitude_deg = float(str(row[lat_idx]).strip())
-                longitude_deg = float(str(row[lon_idx]).strip())
-                if name_idx is not None and name_idx < len(row) and row[name_idx].strip():
-                    name = row[name_idx].strip()
-                else:
-                    name = f"POP-{auto_index:05d}"
-            else:
-                if len(row) >= 3:
-                    name = row[0].strip() if row[0].strip() else f"POP-{auto_index:05d}"
-                    latitude_deg = float(str(row[1]).strip())
-                    longitude_deg = float(str(row[2]).strip())
-                elif len(row) >= 2:
-                    name = f"POP-{auto_index:05d}"
-                    latitude_deg = float(str(row[0]).strip())
-                    longitude_deg = float(str(row[1]).strip())
-                else:
-                    continue
-        except (ValueError, IndexError):
-            continue
-
-        pops.append(
-            {
-                "name": name,
-                "latitude_deg": latitude_deg,
-                "longitude_deg": longitude_deg,
-            }
-        )
-        auto_index += 1
-
-    return pops
-
-
 def assign_shell_layers(satellites):
     if not satellites:
         return []
@@ -1099,7 +989,7 @@ def get_latest_tle_epoch_utc(satellites):
     return latest
 
 
-def generate_html(satellites, ground_stations, users, pops, shell_summary, output_path: Path, duration_minutes: int, time_step_seconds: int):
+def generate_html(satellites, ground_stations, users, shell_summary, output_path: Path, duration_minutes: int, time_step_seconds: int):
     tle_start_time = get_latest_tle_epoch_utc(satellites)
     tle_start_time_iso = tle_start_time.strftime("%Y-%m-%dT%H:%M:%SZ")
     tle_start_time_label = tle_start_time.strftime("%Y-%m-%d %H:%M:%S UTC")
@@ -1108,13 +998,11 @@ def generate_html(satellites, ground_stations, users, pops, shell_summary, outpu
         HTML_TEMPLATE.replace("__SATELLITES_JSON__", json.dumps(satellites, ensure_ascii=False))
         .replace("__GROUND_STATIONS_JSON__", json.dumps(ground_stations, ensure_ascii=False))
         .replace("__USERS_JSON__", json.dumps(users, ensure_ascii=False))
-        .replace("__POPS_JSON__", json.dumps(pops, ensure_ascii=False))
         .replace("__SHELL_SUMMARY_JSON__", json.dumps(shell_summary, ensure_ascii=False))
         .replace("__SAT_COUNT__", str(len(satellites)))
         .replace("__SHELL_COUNT__", str(len(shell_summary)))
         .replace("__GS_COUNT__", str(len(ground_stations)))
         .replace("__USER_COUNT__", str(len(users)))
-        .replace("__POP_COUNT__", str(len(pops)))
         .replace("__DURATION_MINUTES__", str(duration_minutes))
         .replace("__TIME_STEP_SECONDS__", str(time_step_seconds))
         .replace("__TLE_START_TIME_ISO__", tle_start_time_iso)
@@ -1130,7 +1018,6 @@ def main():
     parser = argparse.ArgumentParser(description="TLE 轨道可视化 HTML 生成器")
     default_ground_stations_file = str(Path(__file__).resolve().with_name("ground_stations.basic.txt"))
     default_users_file = str(Path(__file__).resolve().with_name("user.txt"))
-    default_pops_file = str(Path(__file__).resolve().with_name("pop.txt"))
     parser.add_argument(
         "tle_files",
         nargs="*",
@@ -1144,7 +1031,6 @@ def main():
     parser.add_argument("--raan-threshold", type=float, default=2.0, help="按 RAAN 聚类轨道面的阈值（度），默认 2.0")
     parser.add_argument("--ground-stations", default=default_ground_stations_file, help="地面站文件路径（basic 或 extended，读取前5列），默认 ground_stations.basic.txt")
     parser.add_argument("--users", default=default_users_file, help="用户分布文件路径（CSV，支持 header 或前两列经纬度），默认 user_distribution.txt")
-    parser.add_argument("--pops", default=default_pops_file, help="POP 文件路径（CSV，支持表头：pop,latitude,longitude），默认 pop.txt")
     parser.add_argument("--max-users", type=int, default=0, help="最多可视化用户点数量，0 表示全部")
     args = parser.parse_args()
 
@@ -1187,19 +1073,11 @@ def main():
         if args.max_users > 0:
             users = users[: args.max_users]
 
-    pops = []
-    if args.pops:
-        pops_path = Path(args.pops)
-        if not pops_path.exists():
-            print(f"错误：找不到 POP 文件 {pops_path}")
-            return
-        pops = read_pops_file(pops_path)
-
     output_path = Path(args.output)
     if output_path.parent != Path(""):
         output_path.parent.mkdir(parents=True, exist_ok=True)
 
-    generate_html(satellites, ground_stations, users, pops, shell_summary, output_path, args.duration_minutes, args.time_step_seconds)
+    generate_html(satellites, ground_stations, users, shell_summary, output_path, args.duration_minutes, args.time_step_seconds)
 
 
 if __name__ == "__main__":
